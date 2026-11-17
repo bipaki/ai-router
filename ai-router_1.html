@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prompt Router</title>
+<style>
+:root{--bg:#f6f5f1;--surface:#fff;--text:#1d1d1b;--muted:#6b6a64;--border:#e2e0d8;--accent:#c4501e;--accent-soft:#fbeee6;--on-accent:#fff;--track:#ece9e0;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151513;--surface:#1f1f1c;--text:#ecebe5;--muted:#9a988f;--border:#33332e;--accent:#ef8a5c;--accent-soft:#3a2418;--on-accent:#151513;--track:#2b2b27;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#151513;--surface:#1f1f1c;--text:#ecebe5;--muted:#9a988f;--border:#33332e;--accent:#ef8a5c;--accent-soft:#3a2418;--on-accent:#151513;--track:#2b2b27;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:28px 18px 48px}
+h1{font-size:1.7rem;margin:0 0 4px;letter-spacing:-.02em}
+.sub,.muted{color:var(--muted)}
+.sub{margin:0 0 22px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px}
+label,h3{display:block;font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 6px}
+h3{margin-top:16px}
+textarea,input{width:100%;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+textarea{resize:vertical;min-height:110px}
+textarea:focus,input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}
+.chip{font:inherit;font-size:.82rem;color:var(--muted);background:none;border:1px solid var(--border);border-radius:99px;padding:4px 11px;cursor:pointer}
+.chip:hover{color:var(--text);border-color:var(--accent)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.seg button{font:inherit;font-size:.88rem;color:var(--muted);background:none;border:0;padding:8px 13px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.primary{font:inherit;font-weight:600;background:var(--accent);color:var(--on-accent);border:0;border-radius:10px;padding:10px 20px;cursor:pointer}
+.primary:disabled{opacity:.55;cursor:wait}
+.head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.badge{background:var(--accent-soft);color:var(--accent);font-weight:600;border-radius:99px;padding:3px 12px;font-size:.9rem}
+.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tier{border:1px solid var(--border);border-radius:10px;padding:10px;min-width:0;opacity:.65}
+.tier.on{opacity:1;border-color:var(--accent);background:var(--accent-soft)}
+.tier b{display:block;font-size:.9rem}
+.tier span{display:block;font-size:.76rem;color:var(--muted);overflow-wrap:anywhere}
+.why{margin:14px 0 0}
+ul{margin:0;padding-left:18px;color:var(--muted);font-size:.92rem}
+.bar{display:grid;grid-template-columns:110px 1fr 22px;gap:8px;align-items:center;font-size:.85rem;margin:4px 0}
+.bar div{height:8px;border-radius:4px;background:var(--track);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+.bar em{font-style:normal;color:var(--muted);text-align:right}
+pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
+.note{background:var(--accent-soft);border-radius:10px;padding:10px 12px;font-size:.9rem;margin-bottom:10px}
+summary{cursor:pointer;font-weight:600}
+.grid{display:grid;gap:12px;margin-top:14px}
+.chk{display:flex;gap:8px;align-items:center;font-size:.88rem;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400}
+.chk input{width:auto}
+.hist{font-size:.88rem;color:var(--muted);list-style:none;padding:0}
+.hist li{padding:5px 0;border-top:1px solid var(--border);overflow-wrap:anywhere}
+footer{font-size:.82rem;color:var(--muted);text-align:center;margin-top:20px}
+@media (max-width:520px){.tiers{grid-template-columns:1fr}.bar{grid-template-columns:90px 1fr 22px}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Prompt Router</h1>
+  <p class="sub">Paste a prompt and a rule-based classifier picks the right model tier. It all runs in your browser, with no backend.</p>
+
+  <section class="card">
+    <label for="prompt">Prompt</label>
+    <textarea id="prompt" placeholder="Ask anything…"></textarea>
+    <div class="chips" id="chips"></div>
+    <div class="row">
+      <div class="seg" id="seg" role="group" aria-label="Routing strategy">
+        <button data-s="-1" aria-pressed="false">Save cost</button>
+        <button data-s="0" aria-pressed="true">Balanced</button>
+        <button data-s="1" aria-pressed="false">Best quality</button>
+      </div>
+      <button class="primary" id="go">Route prompt</button>
+    </div>
+  </section>
+
+  <section class="card" id="decision" hidden></section>
+  <section class="card" id="resp" hidden></section>
+
+  <details class="card">
+    <summary>Settings</summary>
+    <div class="grid">
+      <div><label for="key">OpenRouter API key (optional)</label>
+        <input id="key" type="password" placeholder="sk-or-…" autocomplete="off">
+        <label class="chk" style="margin-top:6px"><input type="checkbox" id="remember"> Remember in this browser (stored unencrypted)</label></div>
+      <div><label for="m0">Fast model</label><input id="m0" value="google/gemini-2.5-flash"></div>
+      <div><label for="m1">Balanced model</label><input id="m1" value="anthropic/claude-sonnet-4.5"></div>
+      <div><label for="m2">Pro model</label><input id="m2" value="openai/gpt-5"></div>
+    </div>
+  </details>
+
+  <section class="card" id="histCard" hidden><h3 style="margin-top:0">Recent routes</h3><ul class="hist" id="hist"></ul></section>
+
+  <footer>Without a key the router shows its decision only. With a key, the prompt goes straight from your browser to OpenRouter.</footer>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+const CATS = {code:"Code", reasoning:"Reasoning", creative:"Creative", summarize:"Transform", quick:"Quick answer", general:"General"};
+const BASE = {code:1, reasoning:2, creative:1, summarize:0, quick:0, general:1};
+const TIERS = ["Fast", "Balanced", "Pro"];
+const STRAT = {"-1":"cost-saving strategy (−1 tier)", "0":"balanced strategy", "1":"quality strategy (+1 tier)"};
+
+// [category, weight, pattern, signal label]
+const RULES = [
+  ["code", 3, /```/, "code block"],
+  ["code", 2, /\b(function|def|class|bug|debug|refactor|compile|stack trace|exception|regex|sql|api|endpoint|json|html|css|python|javascript|typescript|java|rust|react|node)\b/i, "programming terms"],
+  ["code", 2, /\b(write|fix|implement|optimi[sz]e)\s+(a |an |the |this )?(script|function|program|code|class|component)/i, "coding request"],
+  ["reasoning", 3, /\b(prove|proof|derive|integral|derivative|equation|theorem|probability|calculate|solve)\b/i, "math terms"],
+  ["reasoning", 2, /\b(step[- ]by[- ]step|logic|puzzle|riddle|trade-?offs?|compare|analy[sz]e|reason through|strategy)\b/i, "analytical phrasing"],
+  ["reasoning", 2, /\d\s*[-+*\/^=]\s*\d/, "arithmetic"],
+  ["creative", 3, /\b(story|poem|lyrics|haiku|screenplay|fiction|novel|slogan|tagline|joke)\b/i, "creative form"],
+  ["creative", 2, /\b(imagine|brainstorm|creative)\b/i, "creative verb"],
+  ["summarize", 3, /\b(summari[sz]e|tl;?dr|extract|rewrite|rephrase|proofread|translate|paraphrase|bullet points?)\b/i, "transform verb"],
+  ["quick", 2, /^(what|who|when|where)\s+(is|are|was|were)\b|^define\b|\bcapital of\b/i, "simple lookup"]
+];
+
+function classify(text, strategy){
+  const t = text.trim(), scores = {}, signals = [];
+  Object.keys(CATS).forEach(c => scores[c] = 0);
+  for (const [c, w, re, label] of RULES) if (re.test(t)) { scores[c] += w; signals.push(label + " → " + CATS[c]); }
+  if (t.length <= 60) { scores.quick += 2; signals.push("very short prompt → Quick answer"); }
+  let cat = "general", best = 0;
+  for (const c in scores) if (c !== "general" && scores[c] > best) { best = scores[c]; cat = c; }
+  if (best < 2) { cat = "general"; signals.push("no strong signal → General"); }
+  const total = Object.values(scores).reduce((a, b) => a + b, 0);
+  let tier = BASE[cat];
+  const notes = [CATS[cat] + " starts at " + TIERS[BASE[cat]]];
+  if (t.length > 2000) { tier++; notes.push("long input (+1 tier)"); }
+  tier += strategy; if (strategy) notes.push(STRAT[strategy]);
+  tier = Math.max(0, Math.min(2, tier));
+  return {cat, scores, signals, tier, notes, conf: total ? Math.round(best / total * 100) : 0, tokens: Math.ceil(t.length / 4)};
+}
+
+let strategy = 0;
+const hist = [];
+const models = () => [0, 1, 2].map(i => $("#m" + i).value.trim());
+
+function renderDecision(d, ms){
+  const max = Math.max(1, ...Object.values(d.scores));
+  const bars = Object.entries(d.scores).filter(e => e[1] > 0).sort((a, b) => b[1] - a[1])
+    .map(([c, s]) => `<div class="bar"><span>${esc(CATS[c])}</span><div><i style="width:${s / max * 100}%"></i></div><em>${s}</em></div>`).join("");
+  $("#decision").hidden = false;
+  $("#decision").innerHTML = `
+    <div class="head"><span class="badge">${esc(CATS[d.cat])}</span><span class="muted">${d.conf}% match · ~${d.tokens} input tokens</span></div>
+    <div class="tiers">${TIERS.map((n, i) => `<div class="tier ${i === d.tier ? "on" : ""}"><b>${n}${i === d.tier ? " ✓" : ""}</b><span>${esc(ms[i] || "not set")}</span></div>`).join("")}</div>
+    <p class="why"><b>Routed to ${TIERS[d.tier]}.</b> ${esc(d.notes.join("; "))}.</p>
+    <h3>Signals matched</h3><ul>${d.signals.length ? d.signals.map(s => `<li>${esc(s)}</li>`).join("") : "<li>none</li>"}</ul>
+    <h3>Category scores</h3>${bars || '<span class="muted">All zero</span>'}`;
+}
+
+function setResp(html){ $("#resp").hidden = false; $("#resp").innerHTML = html; }
+
+async function route(){
+  const text = $("#prompt").value.trim();
+  if (!text) { $("#prompt").focus(); return; }
+  const d = classify(text, strategy), ms = models(), model = ms[d.tier], key = $("#key").value.trim();
+  renderDecision(d, ms);
+  hist.unshift({text, cat: CATS[d.cat], model: model || TIERS[d.tier]});
+  $("#histCard").hidden = false;
+  $("#hist").innerHTML = hist.slice(0, 6).map(h => `<li>${esc(h.text.slice(0, 70))}${h.text.length > 70 ? "…" : ""}<br>${esc(h.cat)} → ${esc(h.model)}</li>`).join("");
+
+  if (!key) { setResp(`<div class="note">Demo mode: no API key set, so nothing was sent. Live, this prompt would go to <b>${esc(model || "your " + TIERS[d.tier] + " model")}</b>.</div>`); return; }
+  if (!model) { setResp(`<div class="note">Set a model ID for the ${TIERS[d.tier]} tier in Settings first.</div>`); return; }
+
+  const btn = $("#go"); btn.disabled = true; btn.textContent = "Sending…";
+  setResp(`<span class="muted">Waiting for ${esc(model)}…</span>`);
+  try {
+    const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "Authorization": "Bearer " + key},
+      body: JSON.stringify({model, messages: [{role: "user", content: text}]})
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error((j.error && j.error.message) || ("HTTP " + r.status));
+    setResp(`<label>${esc(model)}</label><pre>${esc(j.choices[0].message.content)}</pre>`);
+  } catch (e) {
+    setResp(`<div class="note">Request failed: ${esc(e.message)}. If you opened this as a hosted page, outbound requests may be blocked. Save the file and open it locally to call models.</div>`);
+  } finally { btn.disabled = false; btn.textContent = "Route prompt"; }
+}
+
+function save(){
+  try {
+    const d = {models: models()};
+    if ($("#remember").checked) d.key = $("#key").value;
+    localStorage.setItem("router:v1", JSON.stringify(d));
+  } catch (e) {}
+}
+function load(){
+  try {
+    const d = JSON.parse(localStorage.getItem("router:v1") || "null");
+    if (!d) return;
+    (d.models || []).forEach((m, i) => { if (m) $("#m" + i).value = m; });
+    if (d.key) { $("#key").value = d.key; $("#remember").checked = true; }
+  } catch (e) {}
+}
+
+["What is the capital of Australia?",
+ "Write a Python function that merges two sorted lists",
+ "Prove that the square root of 2 is irrational",
+ "Write a short poem about monsoon rain",
+ "Summarize this in three bullet points: …"].forEach(t => {
+  const b = document.createElement("button");
+  b.className = "chip"; b.textContent = t;
+  b.onclick = () => { $("#prompt").value = t; $("#prompt").focus(); };
+  $("#chips").appendChild(b);
+});
+
+$("#seg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  strategy = +b.dataset.s;
+  document.querySelectorAll("#seg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+});
+$("#go").onclick = route;
+$("#prompt").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) route(); });
+["m0", "m1", "m2", "key", "remember"].forEach(id => $("#" + id).addEventListener("input", save));
+load();
+</script>
+</body>
+</html>
